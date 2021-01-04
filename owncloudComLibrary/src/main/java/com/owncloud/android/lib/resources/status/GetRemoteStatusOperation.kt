@@ -71,7 +71,7 @@ class GetRemoteStatusOperation : RemoteOperation<OwnCloudVersion>() {
         var successfulConnection = false
         val baseUrlSt = client.baseUri.toString()
         try {
-            var getMethod = GetMethod(URL(baseUrlSt + OwnCloudClient.STATUS_PATH)).apply {
+            var getMethod = GetMethod(client, URL(baseUrlSt + OwnCloudClient.STATUS_PATH)).apply {
                 setReadTimeout(TRY_CONNECTION_TIMEOUT, TimeUnit.SECONDS)
                 setConnectionTimeout(TRY_CONNECTION_TIMEOUT, TimeUnit.SECONDS)
             }
@@ -97,7 +97,7 @@ class GetRemoteStatusOperation : RemoteOperation<OwnCloudVersion>() {
                                 HTTP_PREFIX
                             ))
 
-                getMethod = GetMethod(URL(redirectedLocation)).apply {
+                getMethod = GetMethod(client, URL(redirectedLocation)).apply {
                     setReadTimeout(TRY_CONNECTION_TIMEOUT, TimeUnit.SECONDS)
                     setConnectionTimeout(TRY_CONNECTION_TIMEOUT, TimeUnit.SECONDS)
                 }

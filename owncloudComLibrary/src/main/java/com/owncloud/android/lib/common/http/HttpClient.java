@@ -54,13 +54,22 @@ import java.util.concurrent.TimeUnit;
  * @author David González Verdugo
  */
 public class HttpClient {
-    private static OkHttpClient sOkHttpClient;
     private static Context sContext;
-    private static HashMap<String, List<Cookie>> sCookieStore = new HashMap<>();
-    private static LogInterceptor sLogInterceptor;
+    private HashMap<String, List<Cookie>> mCookieStore = new HashMap<>();
+    private LogInterceptor mLogInterceptor;
 
-    public static OkHttpClient getOkHttpClient() {
-        if (sOkHttpClient == null) {
+    private OkHttpClient mOkHttpClient = null;
+
+    protected HttpClient() {
+        mLogInterceptor = new LogInterceptor();
+    }
+
+    public OkHttpClient getOkHttpClient() {
+        if(sContext == null) {
+            Timber.e("Context not initialized call HttpClient.setContext(applicationContext) in the MainApp.onCrate()");
+            throw new RuntimeException("Context not initialized call HttpClient.setContext(applicationContext) in the MainApp.onCrate()");
+        }
+        if(mOkHttpClient == null) {
             try {
                 final X509TrustManager trustManager = new AdvancedX509TrustManager(
                         NetworkUtils.getKnownServersStore(sContext));
@@ -87,9 +96,7 @@ public class HttpClient {
                 }
 
                 sslContext.init(null, new TrustManager[]{trustManager}, null);
-
                 SSLSocketFactory sslSocketFactory;
-
                 sslSocketFactory = sslContext.getSocketFactory();
 
                 // Automatic cookie handling, NOT PERSISTENT
@@ -100,12 +107,12 @@ public class HttpClient {
                         Set<Cookie> nonDuplicatedCookiesSet = new HashSet<>(cookies);
                         List<Cookie> nonDuplicatedCookiesList = new ArrayList<>(nonDuplicatedCookiesSet);
 
-                        sCookieStore.put(url.host(), nonDuplicatedCookiesList);
+                        mCookieStore.put(url.host(), nonDuplicatedCookiesList);
                     }
 
                     @Override
                     public List<Cookie> loadForRequest(HttpUrl url) {
-                        List<Cookie> cookies = sCookieStore.get(url.host());
+                        List<Cookie> cookies = mCookieStore.get(url.host());
                         return cookies != null ? cookies : new ArrayList<>();
                     }
                 };
@@ -123,35 +130,32 @@ public class HttpClient {
                 // TODO: Not verifying the hostname against certificate. ask owncloud security human if this is ok.
                 //.hostnameVerifier(new BrowserCompatHostnameVerifier());
 
-                sOkHttpClient = clientBuilder.build();
+                mOkHttpClient = clientBuilder.build();
 
             } catch (Exception e) {
                 Timber.e(e, "Could not setup SSL system.");
             }
         }
-        return sOkHttpClient;
-    }
-
-    public Context getContext() {
-        return sContext;
+        return mOkHttpClient;
     }
 
     public static void setContext(Context context) {
         sContext = context;
     }
 
-    public static LogInterceptor getLogInterceptor() {
-        if (sLogInterceptor == null) {
-            sLogInterceptor = new LogInterceptor();
-        }
-        return sLogInterceptor;
+    public Context getContext() {
+        return sContext;
+    }
+
+    public LogInterceptor getLogInterceptor() {
+        return mLogInterceptor;
     }
 
     public List<Cookie> getCookiesFromUrl(HttpUrl httpUrl) {
-        return sCookieStore.get(httpUrl.host());
+        return mCookieStore.get(httpUrl.host());
     }
 
     public void clearCookies() {
-        sCookieStore.clear();
+        mCookieStore.clear();
     }
 }

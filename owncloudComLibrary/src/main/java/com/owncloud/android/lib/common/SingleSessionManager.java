@@ -109,10 +109,8 @@ public class SingleSessionManager {
             // no client to reuse - create a new one
             client = OwnCloudClientFactory.createOwnCloudClient(
                     account.getBaseUri(),
-                    context.getApplicationContext(),
                     true);    // TODO remove dependency on OwnCloudClientFactory
             client.setAccount(account);
-            HttpClient.setContext(context);
 
             account.loadCredentials(context);
             client.setCredentials(account.getCredentials());

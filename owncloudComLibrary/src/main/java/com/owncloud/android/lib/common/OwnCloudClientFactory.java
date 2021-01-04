@@ -24,7 +24,6 @@
 
 package com.owncloud.android.lib.common;
 
-import android.content.Context;
 import android.net.Uri;
 
 public class OwnCloudClientFactory {
@@ -34,16 +33,12 @@ public class OwnCloudClientFactory {
      * client connections.
      *
      * @param uri     URL to the ownCloud server; BASE ENTRY POINT, not WebDavPATH
-     * @param context Android context where the OwnCloudClient is being created.
      * @return A OwnCloudClient object ready to be used
      */
-    public static OwnCloudClient createOwnCloudClient(Uri uri, Context context, boolean followRedirects) {
+    public static OwnCloudClient createOwnCloudClient(Uri uri, boolean followRedirects) {
         OwnCloudClient client = new OwnCloudClient(uri);
 
         client.setFollowRedirects(followRedirects);
-
-        client.setContext(context);
-
         return client;
     }
 }
