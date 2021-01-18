@@ -74,50 +74,16 @@ public class HttpClient {
                 final X509TrustManager trustManager = new AdvancedX509TrustManager(
                         NetworkUtils.getKnownServersStore(sContext));
 
-                SSLContext sslContext;
 
-                try {
-                    sslContext = SSLContext.getInstance("TLSv1.3");
-                } catch (NoSuchAlgorithmException tlsv13Exception) {
-                    try {
-                        Timber.w("TLSv1.3 is not supported in this device; falling through TLSv1.2");
-                        sslContext = SSLContext.getInstance("TLSv1.2");
-                    } catch (NoSuchAlgorithmException tlsv12Exception) {
-                        try {
-                            Timber.w("TLSv1.2 is not supported in this device; falling through TLSv1.1");
-                            sslContext = SSLContext.getInstance("TLSv1.1");
-                        } catch (NoSuchAlgorithmException tlsv11Exception) {
-                            Timber.w("TLSv1.1 is not supported in this device; falling through TLSv1.0");
-                            sslContext = SSLContext.getInstance("TLSv1");
-                            // should be available in any device; see reference of supported protocols in
-                            // http://developer.android.com/reference/javax/net/ssl/SSLSocket.html
-                        }
-                    }
-                }
-
+                final SSLContext sslContext = buildSSLContext();
                 sslContext.init(null, new TrustManager[]{trustManager}, null);
-                SSLSocketFactory sslSocketFactory;
-                sslSocketFactory = sslContext.getSocketFactory();
+                final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
 
                 // Automatic cookie handling, NOT PERSISTENT
-                CookieJar cookieJar = new CookieJar() {
-                    @Override
-                    public void saveFromResponse(HttpUrl url, List<Cookie> cookies) {
-                        // Avoid duplicated cookies
-                        Set<Cookie> nonDuplicatedCookiesSet = new HashSet<>(cookies);
-                        List<Cookie> nonDuplicatedCookiesList = new ArrayList<>(nonDuplicatedCookiesSet);
+                final CookieJar cookieJar = buildCookieJar();
 
-                        mCookieStore.put(url.host(), nonDuplicatedCookiesList);
-                    }
-
-                    @Override
-                    public List<Cookie> loadForRequest(HttpUrl url) {
-                        List<Cookie> cookies = mCookieStore.get(url.host());
-                        return cookies != null ? cookies : new ArrayList<>();
-                    }
-                };
-
-                OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder()
+                // TODO: Not verifying the hostname against certificate. ask owncloud security human if this is ok.
+                mOkHttpClient = new OkHttpClient.Builder()
                         .addNetworkInterceptor(getLogInterceptor())
                         .protocols(Arrays.asList(Protocol.HTTP_1_1))
                         .readTimeout(HttpConstants.DEFAULT_DATA_TIMEOUT, TimeUnit.MILLISECONDS)
@@ -126,17 +92,58 @@ public class HttpClient {
                         .followRedirects(false)
                         .sslSocketFactory(sslSocketFactory, trustManager)
                         .hostnameVerifier((asdf, usdf) -> true)
-                        .cookieJar(cookieJar);
-                // TODO: Not verifying the hostname against certificate. ask owncloud security human if this is ok.
-                //.hostnameVerifier(new BrowserCompatHostnameVerifier());
+                        .cookieJar(cookieJar)
+                        .build();
 
-                mOkHttpClient = clientBuilder.build();
-
+            } catch(NoSuchAlgorithmException nsae){
+                Timber.e(nsae, "Could not setup SSL system.");
+                throw new RuntimeException("Could not setup okHttp client.", nsae);
             } catch (Exception e) {
-                Timber.e(e, "Could not setup SSL system.");
+                Timber.e(e, "Could not setup okHttp client.");
+                throw new RuntimeException("Could not setup okHttp client.", e);
             }
         }
         return mOkHttpClient;
+    }
+
+    private SSLContext buildSSLContext() throws NoSuchAlgorithmException {
+        try {
+            return SSLContext.getInstance("TLSv1.3");
+        } catch (NoSuchAlgorithmException tlsv13Exception) {
+            try {
+                Timber.w("TLSv1.3 is not supported in this device; falling through TLSv1.2");
+                return SSLContext.getInstance("TLSv1.2");
+            } catch (NoSuchAlgorithmException tlsv12Exception) {
+                try {
+                    Timber.w("TLSv1.2 is not supported in this device; falling through TLSv1.1");
+                    return SSLContext.getInstance("TLSv1.1");
+                } catch (NoSuchAlgorithmException tlsv11Exception) {
+                    Timber.w("TLSv1.1 is not supported in this device; falling through TLSv1.0");
+                    return SSLContext.getInstance("TLSv1");
+                    // should be available in any device; see reference of supported protocols in
+                    // http://developer.android.com/reference/javax/net/ssl/SSLSocket.html
+                }
+            }
+        }
+    }
+
+    private CookieJar buildCookieJar() {
+        return new CookieJar() {
+            @Override
+            public void saveFromResponse(HttpUrl url, List<Cookie> cookies) {
+                // Avoid duplicated cookies
+                Set<Cookie> nonDuplicatedCookiesSet = new HashSet<>(cookies);
+                List<Cookie> nonDuplicatedCookiesList = new ArrayList<>(nonDuplicatedCookiesSet);
+
+                mCookieStore.put(url.host(), nonDuplicatedCookiesList);
+            }
+
+            @Override
+            public List<Cookie> loadForRequest(HttpUrl url) {
+                List<Cookie> cookies = mCookieStore.get(url.host());
+                return cookies != null ? cookies : new ArrayList<>();
+            }
+        };
     }
 
     public static void setContext(Context context) {
